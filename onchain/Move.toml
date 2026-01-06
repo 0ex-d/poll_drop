@@ -1,0 +1,8 @@
+[package]
+name = "poll_mine"
+edition = "2024.beta"
+
+[dependencies]
+
+[addresses]
+onchain = "0x0"
