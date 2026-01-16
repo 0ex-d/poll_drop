@@ -1,16 +1,12 @@
 module onchain::poll;
 
-use onchain::utils::{init_votes, has_voted, has_claimed};
-use std::option::{Self, Option};
-use std::string::{Self, String};
-use std::vector;
+use onchain::utils::{init_votes, has_voted, has_claimed, find_winning_option, find_voter_index};
+use std::string::{ String};
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
 use sui::event;
-use sui::object::{Self, UID};
 use sui::sui::SUI;
-use sui::transfer;
 
 const PLATFORM_FEE_PERCENT: u64 = 5;
 const FEE_DENOMINATOR: u64 = 100;
@@ -36,6 +32,7 @@ public struct Poll has key, store {
     creator: address,
     platform_treasury: address,
     expires_at: u64,
+    title: String,
     deposit_amount: u64,
     options: vector<String>,
     votes: vector<u64>,
@@ -51,12 +48,40 @@ public struct Poll has key, store {
 public struct PollEvent has copy, drop {
     id: ID,
     creator: address,
+    title: String,
+    expires_at: u64,
+    deposit_amount: u64,
+    timestamp: u64,
+    options: vector<String>,
+}
+
+public struct VoteEvent has copy, drop {
+    poll_id: ID,
+    voter: address,
+    option_index: u64,
+    timestamp: u64,
+}
+
+public struct ClaimEvent has copy, drop {
+    poll_id: ID,
+    claimant: address,
+    amount: u64,
+    timestamp: u64,
+}
+
+public struct FinalizeEvent has copy, drop {
+    poll_id: ID,
+    winning_option: u64,
+    winning_vote_count: u64,
+    total_votes: u64,
+    timestamp: u64,
 }
 
 /// Creates a new poll with staking mechanism
 public fun create_poll(
     options: vector<String>,
     expires_at: u64,
+    title: String,
     deposit_amount: u64,
     platform_treasury: address,
     creator_deposit: Coin<SUI>,
@@ -76,6 +101,11 @@ public fun create_poll(
     event::emit(PollEvent {
         id: id.to_inner(),
         creator: creator_address,
+        title,
+        expires_at,
+        deposit_amount,
+        timestamp: clock.timestamp_ms(),
+        options,
     });
 
     let poll = Poll {
@@ -83,6 +113,7 @@ public fun create_poll(
         creator: creator_address,
         platform_treasury,
         expires_at,
+        title,
         deposit_amount,
         options,
         votes,
@@ -96,6 +127,108 @@ public fun create_poll(
     };
 
     transfer::share_object(poll);
+}
+
+/// Cast a vote for a poll option
+public fun vote(
+    poll: &mut Poll,
+    vote_index: u64,
+    payment: Coin<SUI>,
+    clock: &Clock,
+    ctx: &mut TxContext
+) {
+    let sender = ctx.sender();
+    
+    // Checks
+    assert!(clock.timestamp_ms() < poll.expires_at, EPollExpired);
+    assert!(!has_user_voted(poll, sender), EAlreadyVoted);
+    assert!(sender != poll.creator, ECreatorVote);
+    assert!(vote_index < vector::length(&poll.options), EVoteOutOfRange);
+    assert!(coin::value(&payment) >= poll.deposit_amount, EInsufficientDeposit);
+
+    // Update state
+    let current_votes = *vector::borrow(&poll.votes, vote_index);
+    *vector::borrow_mut(&mut poll.votes, vote_index) = current_votes + 1;
+
+    vector::push_back(&mut poll.voters, sender);
+    vector::push_back(&mut poll.vote_choices, vote_index);
+    balance::join(&mut poll.pool, coin::into_balance(payment));
+
+    event::emit(VoteEvent {
+        poll_id: object::id(poll),
+        voter: sender,
+        option_index: vote_index,
+        timestamp: clock.timestamp_ms(),
+    });
+}
+
+/// Finalize the poll and determine winner
+public fun finalize(poll: &mut Poll, clock: &Clock, _ctx: &mut TxContext) {
+    assert!(clock.timestamp_ms() >= poll.expires_at, EPollOpen);
+    assert!(option::is_none(&poll.winning_option), EPollAlreadyFinalized);
+
+    let winning_idx = find_winning_option(&poll.votes);
+    poll.winning_option = option::some(winning_idx);
+
+    let winning_vote_count = *vector::borrow(&poll.votes, winning_idx);
+    let total_votes = vector::length(&poll.voters);
+
+    event::emit(FinalizeEvent {
+        poll_id: object::id(poll),
+        winning_option: winning_idx,
+        winning_vote_count,
+        total_votes,
+        timestamp: clock.timestamp_ms(),
+    });
+}
+
+/// Claim reward for winning voters
+public fun claim_reward(poll: &mut Poll, ctx: &mut TxContext) {
+    assert!(option::is_some(&poll.winning_option), EPollNotFinalized);
+    let sender = ctx.sender();
+    assert!(!has_claimed(&poll.claimed, sender), EAlreadyClaimed);
+
+    let winning_idx = *option::borrow(&poll.winning_option);
+    
+    // Check eligibility
+    let voter_idx_opt = find_voter_index(&poll.voters, sender);
+    assert!(option::is_some(&voter_idx_opt), ENotWinner);
+    
+    let v_idx = *option::borrow(&voter_idx_opt);
+    let user_choice = *vector::borrow(&poll.vote_choices, v_idx);
+    assert!(user_choice == winning_idx, ENotWinner);
+
+    // Collect platform fee if not already collected
+    if (!poll.fee_collected) {
+        let total_balance = balance::value(&poll.pool);
+        let fee_amt = (total_balance * PLATFORM_FEE_PERCENT) / FEE_DENOMINATOR;
+        if (fee_amt > 0) {
+            let fee_coin = coin::take(&mut poll.pool, fee_amt, ctx);
+            transfer::public_transfer(fee_coin, poll.platform_treasury);
+        };
+        poll.fee_collected = true;
+    };
+
+    // Calculate reward based on remaining pool and remaining winners
+    let total_winners = *vector::borrow(&poll.votes, winning_idx);
+    let claimed_count = get_claimed_count(poll);
+    let remaining_winners = total_winners - claimed_count;
+    
+    assert!(remaining_winners > 0, ENoWinners); // Should not happen if checks pass
+
+    let reward_amt = balance::value(&poll.pool) / remaining_winners;
+    let reward_coin = coin::take(&mut poll.pool, reward_amt, ctx);
+    
+    transfer::public_transfer(reward_coin, sender);
+    vector::push_back(&mut poll.claimed, sender);
+
+    event::emit(ClaimEvent {
+        poll_id: object::id(poll),
+        claimant: sender,
+        amount: reward_amt,
+        timestamp: ctx.epoch_timestamp_ms(), // Using ctx timestamp as approximation if clock not passed, or we can change signature.
+        // Actually, let's use ctx.epoch_timestamp_ms() as it's sufficient for events if precise clock isn't needed for logic.
+    });
 }
 
 // === accessor functions ===
