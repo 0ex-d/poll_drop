@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 0ex-d
+
 module onchain::poll;
 
 use onchain::utils::{init_votes, has_voted, has_claimed, find_winning_option, find_voter_index};
@@ -12,7 +15,6 @@ const PLATFORM_FEE_PERCENT: u64 = 5;
 const FEE_DENOMINATOR: u64 = 100;
 
 const EOptionsEmpty: u64 = 1;
-const EPollNotFound: u64 = 2;
 const EPollExpired: u64 = 3;
 const EPollOpen: u64 = 4;
 const EVoteOutOfRange: u64 = 5;
