@@ -1,97 +1,76 @@
-# Poll Drop
+# PollDrop
 
-A decentralized polling platform built on Sui blockchain with stake-to-vote mechanics and winner-takes-all reward distribution. Sui object-orientation and move language enable a trustless and transparent polling platform.
+A decentralized polling platform on Sui blockchain where users stake SUI tokens to vote, and winners share the reward pool.
 
 ## Overview
 
-Poll Drop allows users to create polls where participants stake SUI tokens to vote. After the poll expires, the winning option's voters split the entire prize pool (minus a 5% platform fee). This creates skin-in-the-game dynamics for more meaningful polling.
+PollDrop enables anyone to create prediction markets and community polls with real economic incentives. Voters stake SUI tokens on their choice, and those who voted for the winning option split the pool (minus a 5% platform fee).
 
-## Smart Contract Flow
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           POLL LIFECYCLE                                 │
-└─────────────────────────────────────────────────────────────────────────┘
-
-    ┌──────────────┐
-    │   CREATE     │  Creator stakes deposit + sets options & expiry
-    │   POLL       │  Emits: PollEvent (with full poll details)
-    └──────┬───────┘
-           │
-           ▼
-    ┌──────────────┐
-    │   VOTING     │  Voters stake equal deposit to vote
-    │   PHASE      │  - Cannot vote if expired
-    │              │  - Creator cannot vote
-    │              │  - Each address votes once
-    │              │  Emits: VoteEvent (per vote)
-    └──────┬───────┘
-           │
-           │ (Poll expires_at reached)
-           │
-           ▼
-    ┌──────────────┐
-    │  FINALIZE    │  Anyone can call after expiry
-    │              │  - Determines winning option
-    │              │  - Locks poll state
-    │              │  Emits: FinalizeEvent (with vote counts)
-    └──────┬───────┘
-           │
-           ▼
-    ┌──────────────┐
-    │   CLAIM      │  Winners claim proportional rewards
-    │   REWARDS    │  - 5% platform fee (first claim only)
-    │              │  - Remaining pool split equally
-    │              │  - Each winner claims once
-    │              │  Emits: ClaimEvent (per claim)
-    └──────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         REWARD DISTRIBUTION                              │
-└─────────────────────────────────────────────────────────────────────────┘
-
-    Total Pool = (Creator Deposit) + (All Voter Deposits)
-                        │
-                        ├─► 5% → Platform Treasury
-                        │
-                        └─► 95% → Split equally among winners
-
-    Example:
-    - 1 Creator + 3 Voters @ 0.1 SUI each = 0.4 SUI total
-    - Platform Fee: 0.02 SUI
-    - Winner Pool: 0.38 SUI
-    - If 2 voters won: 0.19 SUI each
+```mermaid
+graph TD
+    A[Creator] -->|Creates Poll + Stakes SUI| B(Poll Contract)
+    C[Voters] -->|Vote + Stake SUI| B
+    B -->|Time Expires| D{Finalize}
+    D -->|Option A Wins| E[Option A Voters]
+    D -->|Option B Loses| F[Pool Lost]
+    F -->|Transfers to| E
+    B -->|Platform Fee 5%| G[Treasury]
+    E -->|Claim Rewards| H[$$$ Profit]
 ```
 
-## Features
-
-- **Stake-to-Vote**: Participants must stake SUI to vote, creating commitment
-- **Winner-Takes-All**: Winning voters split the entire pool
-- **Platform Fee**: 5% fee on total pool (collected on first claim)
-- **Event-Driven**: Comprehensive events for indexing and UI updates
-- **Time-Locked**: Polls expire at a specific timestamp
-- **Fair Distribution**: Equal reward split among all winners
-
-## Usage
-
-### Create a Poll
-```bash
-cd scripts_js
-npm run create-poll
+```ascii
++---------+       +-----------+       +-----------+
+| Creator | ----> |   Poll    | <---- |  Voters   |
++---------+       | Contract  |       +-----------+
+     |            +-----------+             |
+  Stakes SUI            |               Stake SUI
+                        v
+                 +-------------+
+                 |  Total Pool |
+                 +-------------+
+                        |
+                  Time Expires
+                        |
+             +----------+----------+
+             |                     |
+     [Winning Option]       [Losing Option]
+             |                     |
+      Claim Rewards            Pool Lost
+             |                     |
+    +--------v--------+   +--------v--------+
+    | Winners Share   |   |   (Redistributed|
+    | Pool - 5% Fee   |   |    to Winners)  |
+    +-----------------+   +-----------------+
 ```
 
-### Vote on a Poll
-```bash
-npm run vote -- --poll <POLL_ID> --index <OPTION_INDEX>
-```
+## Smart Contract Architecture
 
+### Core Functions
 
+- **`create_poll`**: Initialize a new poll with options, expiry, and creator deposit
+- **`vote`**: Cast a vote by depositing the required amount
+- **`finalize`**: Determine the winning option after expiration
+- **`claim_reward`**: Distribute rewards to winning voters
+
+### Events
+
+- **`PollEvent`**: Emitted when a poll is created
+- **`VoteEvent`**: Emitted when a vote is cast
+- **`FinalizeEvent`**: Emitted when a poll is finalized
+- **`ClaimEvent`**: Emitted when rewards are claimed
+
+### Economic Model
+
+1. **Creator Deposit**: Poll creator stakes the initial pool amount
+2. **Voter Deposits**: Each voter stakes the same amount as the creator
+3. **Platform Fee**: 5% deducted from total pool on first claim
+4. **Winner Distribution**: Remaining pool split equally among winners
+5. **Proportional Claiming**: Each winner claims their share independently
 
 ## Security Considerations
 
-- **Creator Cannot Vote**: Prevents self-dealing
-- **One Vote Per Address**: Prevents double voting
-- **Time-Locked Finalization**: Can only finalize after expiry
-- **Claim Once**: Winners can only claim rewards once
-- **Platform Fee First**: Fee collected before any winner claims
-
+- **No Partial Withdrawals**: Winners must claim their full share
+- **Idempotent Claims**: Each address can only claim once
+- **Expiry Enforcement**: Votes rejected after expiration
+- **Creator Exclusion**: Poll creator cannot vote
+- **Duplicate Vote Prevention**: Each address can vote only once

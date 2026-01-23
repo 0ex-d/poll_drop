@@ -9,6 +9,8 @@
     "vote": "ts-node vote.ts",
     "finalize": "ts-node finalize.ts",
     "claim": "ts-node claim.ts",
+    "view-poll": "ts-node viewPoll.ts",
+    "fund-voter": "ts-node fundVoter.ts",
     "setup-multisig": "ts-node sig/setupMultisig.ts",
     "sign-multisig": "ts-node sig/signMultisigTx.ts",
     "combine-submit": "ts-node sig/combineAndSubmit.ts",
