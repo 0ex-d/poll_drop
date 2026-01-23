@@ -14,6 +14,13 @@ use sui::sui::SUI;
 
 const PLATFORM_FEE_PERCENT: u64 = 5;
 const FEE_DENOMINATOR: u64 = 100;
+const MAX_BLOB_ID_LENGTH: u64 = 128;
+const MAX_TITLE_LENGTH: u64 = 256;
+const MAX_OPTIONS: u64 = 10;
+const MAX_OPTION_LENGTH: u64 = 128;
+const MIN_DURATION_MS: u64 = 60 * 60 * 1000; // 1 hour
+const MAX_DURATION_MS: u64 = 365 * 24 * 60 * 60 * 1000; // 1 year
+const MIN_DEPOSIT: u64 = 10_000_000; // 0.01 SUI
 
 const EOptionsEmpty: u64 = 1;
 const EPollExpired: u64 = 3;
@@ -29,8 +36,11 @@ const ENoWinners: u64 = 12;
 const EPollAlreadyFinalized: u64 = 13;
 const EInvalidTreasuryAddress: u64 = 14;
 const EInvalidImageBlobId: u64 = 15;
-
-const MAX_BLOB_ID_LENGTH: u64 = 128;
+const ETitleTooLong: u64 = 16;
+const ETooManyOptions: u64 = 17;
+const EOptionTooLong: u64 = 18;
+const EInvalidDuration: u64 = 19;
+const EDepositTooLow: u64 = 20;
 
 /// Represents a single poll with voting data and staking pool
 public struct Poll has key, store {
@@ -98,9 +108,28 @@ public fun create_poll(
     ctx: &mut TxContext,
 ) {
     assert!(vector::length(&options) > 0, EOptionsEmpty);
+    assert!(vector::length(&options) <= MAX_OPTIONS, ETooManyOptions);
     assert!(platform_treasury != @0x0, EInvalidTreasuryAddress);
 
-    // Verify creator provided the deposit amount
+    // Validate title length
+    assert!(string::length(&title) <= MAX_TITLE_LENGTH, ETitleTooLong);
+
+    // Validate each option length
+    let mut i = 0;
+    let len = vector::length(&options);
+    while (i < len) {
+        let opt = vector::borrow(&options, i);
+        assert!(string::length(opt) <= MAX_OPTION_LENGTH, EOptionTooLong);
+        i = i + 1;
+    };
+
+    // Validate duration
+    let now = clock.timestamp_ms();
+    assert!(expires_at > now + MIN_DURATION_MS, EInvalidDuration);
+    assert!(expires_at <= now + MAX_DURATION_MS, EInvalidDuration);
+
+    // Verify creator provided at least the minimum deposit
+    assert!(deposit_amount >= MIN_DEPOSIT, EDepositTooLow);
     assert!(coin::value(&creator_deposit) >= deposit_amount, EInsufficientDeposit);
 
     // Validate image blob ID length if present
