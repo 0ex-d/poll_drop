@@ -14,6 +14,6 @@ deploy-testnet: build
 
 deploy-mainnet:
     @echo "Deploying to Mainnet..."
-    sui client publish --gas-budget ${GAS_BUDGET} --json --skip-dependency-verification build.json
+    sui client publish --gas-budget ${GAS_BUDGET} --json --skip-dependency-verification 
 clean:
     rm -rf build

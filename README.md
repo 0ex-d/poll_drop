@@ -2,6 +2,10 @@
 
 A decentralized polling platform built on Sui blockchain with stake-to-vote mechanics and winner-takes-all reward distribution. Sui object-orientation and move language enable a trustless and transparent polling platform.
 
+## Overview
+
+Poll Drop allows users to create polls where participants stake SUI tokens to vote. After the poll expires, the winning option's voters split the entire prize pool (minus a 5% platform fee). This creates skin-in-the-game dynamics for more meaningful polling.
+
 ## Smart Contract Flow
 
 ```
@@ -58,6 +62,29 @@ A decentralized polling platform built on Sui blockchain with stake-to-vote mech
     - Winner Pool: 0.38 SUI
     - If 2 voters won: 0.19 SUI each
 ```
+
+## Features
+
+- **Stake-to-Vote**: Participants must stake SUI to vote, creating commitment
+- **Winner-Takes-All**: Winning voters split the entire pool
+- **Platform Fee**: 5% fee on total pool (collected on first claim)
+- **Event-Driven**: Comprehensive events for indexing and UI updates
+- **Time-Locked**: Polls expire at a specific timestamp
+- **Fair Distribution**: Equal reward split among all winners
+
+## Usage
+
+### Create a Poll
+```bash
+cd scripts_js
+npm run create-poll
+```
+
+### Vote on a Poll
+```bash
+npm run vote -- --poll <POLL_ID> --index <OPTION_INDEX>
+```
+
 
 
 ## Security Considerations

@@ -1,0 +1,10 @@
+.DS_Store
+/data
+.env
+
+node_modules
+**/pnpm-lock.yaml
+build
+*.txt
+build*.json
+Move.lock

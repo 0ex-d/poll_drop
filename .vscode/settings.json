@@ -1,0 +1,9 @@
+{
+    "editor.formatOnSave": true,
+    "prettierMove.tabWidth": 4,
+    "prettierMove.printWidth": 100,
+    "prettierMove.useModuleLabel": true,
+    "prettierMove.autoGroupImports": "module",
+    "prettierMove.wrapComments": false,
+    "editor.wordWrap": "on"
+}

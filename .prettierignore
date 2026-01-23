@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+.env
+tx/
+sig/signatures/
+sig/multisig-config.json
+sig/last-tx-result.json
