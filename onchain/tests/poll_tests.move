@@ -61,6 +61,53 @@ fun test_create_poll_with_deposit() {
             FUTURE_TIME * 1000,
             title,
             DEPOSIT_AMOUNT,
+            option::none(),
+            PLATFORM_TREASURY,
+            deposit,
+            &clock,
+            ts::ctx(&mut scenario),
+        );
+    };
+
+    // Verify poll was created with correct parameters
+    ts::next_tx(&mut scenario, CREATOR);
+    {
+        let poll = ts::take_shared<Poll>(&scenario);
+
+        assert!(poll::get_creator(&poll) == CREATOR, 0);
+        assert!(poll::get_platform_treasury(&poll) == PLATFORM_TREASURY, 1);
+        assert!(poll::get_expires_at(&poll) == FUTURE_TIME * 1000, 2);
+        assert!(poll::get_deposit_amount(&poll) == DEPOSIT_AMOUNT, 3);
+        assert!(poll::get_pool_size(&poll) == DEPOSIT_AMOUNT, 4);
+        assert!(poll::get_voter_count(&poll) == 0, 5);
+        assert!(!poll::is_fee_collected(&poll), 6);
+
+        clock::destroy_for_testing(clock);
+        ts::return_shared(poll);
+    };
+
+    ts::end(scenario);
+}
+
+#[test]
+fun test_create_poll_with_image() {
+    let mut scenario = ts::begin(CREATOR);
+
+    let clock = setup_clock(&mut scenario, CURRENT_TIME);
+
+    // Create poll with initial deposit
+    ts::next_tx(&mut scenario, CREATOR);
+    {
+        let options = create_test_options();
+        let deposit = mint_coin(&mut scenario, DEPOSIT_AMOUNT);
+        let title = string::utf8(b"Title");
+        let image_blob_id = option::some(string::utf8(b"0x1234567890abcdef1234567890abcdef"));
+        poll::create_poll(
+            options,
+            FUTURE_TIME * 1000,
+            title,
+            DEPOSIT_AMOUNT,
+            image_blob_id,
             PLATFORM_TREASURY,
             deposit,
             &clock,
@@ -104,6 +151,7 @@ fun test_lifecycle_flow() {
             FUTURE_TIME * 1000,
             title,
             DEPOSIT_AMOUNT,
+            option::none(),
             PLATFORM_TREASURY,
             deposit,
             &clock,

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 0ex-d
 
+#[allow(lint(self_transfer))]
 module onchain::poll;
 
 use onchain::utils::{init_votes, has_voted, has_claimed, find_winning_option, find_voter_index};
-use std::string::{ String};
+use std::string::{Self, String};
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
@@ -27,6 +28,9 @@ const EPollNotFinalized: u64 = 11;
 const ENoWinners: u64 = 12;
 const EPollAlreadyFinalized: u64 = 13;
 const EInvalidTreasuryAddress: u64 = 14;
+const EInvalidImageBlobId: u64 = 15;
+
+const MAX_BLOB_ID_LENGTH: u64 = 128;
 
 /// Represents a single poll with voting data and staking pool
 public struct Poll has key, store {
@@ -45,6 +49,7 @@ public struct Poll has key, store {
     claimed: vector<address>,
     fee_collected: bool,
     timestamp: u64,
+    image_blob_id: Option<String>,
 }
 
 public struct PollEvent has copy, drop {
@@ -55,6 +60,7 @@ public struct PollEvent has copy, drop {
     deposit_amount: u64,
     timestamp: u64,
     options: vector<String>,
+    image_blob_id: Option<String>,
 }
 
 public struct VoteEvent has copy, drop {
@@ -85,6 +91,7 @@ public fun create_poll(
     expires_at: u64,
     title: String,
     deposit_amount: u64,
+    image_blob_id: Option<String>,
     platform_treasury: address,
     creator_deposit: Coin<SUI>,
     clock: &Clock,
@@ -95,6 +102,11 @@ public fun create_poll(
 
     // Verify creator provided the deposit amount
     assert!(coin::value(&creator_deposit) >= deposit_amount, EInsufficientDeposit);
+
+    // Validate image blob ID length if present
+    if (option::is_some(&image_blob_id)) {
+        assert!(string::length(option::borrow(&image_blob_id)) <= MAX_BLOB_ID_LENGTH, EInvalidImageBlobId);
+    };
 
     let id = object::new(ctx);
     let creator_address = ctx.sender();
@@ -108,6 +120,7 @@ public fun create_poll(
         deposit_amount,
         timestamp: clock.timestamp_ms(),
         options,
+        image_blob_id,
     });
 
     let poll = Poll {
@@ -126,6 +139,7 @@ public fun create_poll(
         claimed: vector::empty(),
         fee_collected: false,
         timestamp: clock.timestamp_ms(),
+        image_blob_id,
     };
 
     transfer::share_object(poll);
@@ -298,6 +312,11 @@ public fun is_fee_collected(poll: &Poll): bool {
 /// Get platform fee percentage
 public fun get_platform_fee_percent(): u64 {
     PLATFORM_FEE_PERCENT
+}
+
+/// Get image blob id
+public fun get_image_blob_id(poll: &Poll): Option<String> {
+    poll.image_blob_id
 }
 
 #[test_only]

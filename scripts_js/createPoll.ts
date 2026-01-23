@@ -39,14 +39,13 @@ async function main() {
   const optionsStr = getArg(args, '--options') || 'Yes,No';
   const options = optionsStr.split(',').map((o) => o.trim());
 
-  // Deposit in MIST (1 SUI = 1,000,000,000 MIST)
-  const depositAmount = BigInt(getArg(args, '--deposit_mist') || 100_000_000); // Default 0.1 SUI
+  const depositAmount = BigInt(getArg(args, '--deposit_mist') || 100_000_000);
 
-  // Duration in hours
   const durationHours = Number(getArg(args, '--duration_hours') || 24);
   const expiresAt = Date.now() + durationHours * 60 * 60 * 1000;
 
   const treasury = getArg(args, '--treasury') || senderAddress;
+  const imageBlobId = getArg(args, '--image');
   const manualGasId = getArg(args, '--gas');
 
   console.log(`\n🚀 Creating poll on ${network}`);
@@ -56,6 +55,7 @@ async function main() {
   console.log(
     `Duration: ${durationHours} hours (Expires: ${new Date(expiresAt).toLocaleString()})`,
   );
+  if (imageBlobId) console.log(`Image (Walrus): ${imageBlobId}`);
   console.log(`Treasury: ${treasury}`);
   console.log(`Signer: ${senderAddress}`);
 
@@ -68,7 +68,6 @@ async function main() {
   // Split coin for deposit
   const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(depositAmount)]);
 
-  // Move Call: create_poll(options, expires_at, title, deposit_amount, platform_treasury, creator_deposit, clock, ctx)
   tx.moveCall({
     target: `${PACKAGE_ID}::poll::create_poll`,
     arguments: [
@@ -76,9 +75,10 @@ async function main() {
       tx.pure.u64(expiresAt),
       tx.pure.string(title),
       tx.pure.u64(depositAmount),
+      tx.pure.option('string', imageBlobId || null),
       tx.pure.address(treasury),
       coin,
-      tx.object('0x6'), // Clock object ID
+      tx.object('0x6'),
     ],
   });
 
