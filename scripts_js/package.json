@@ -1,16 +1,26 @@
 {
-    "name": "poll-scripts-js",
-    "version": "1.0.0",
-    "description": "",
-    "main": ".",
-    "scripts": {},
-    "dependencies": {
-        "@mysten/sui": "1.45.2",
-        "dotenv": "17.2.3"
-    },
-    "devDependencies": {
-        "@types/node": "25.0.9",
-        "ts-node": "10.9.2",
-        "typescript": "5.9.3"
-    }
+  "name": "poll-scripts-js",
+  "version": "1.0.0",
+  "description": "",
+  "main": ".",
+  "scripts": {
+    "create-poll": "ts-node createPoll.ts",
+    "get-poll-events": "ts-node getPollEvents.ts",
+    "vote": "ts-node vote.ts",
+    "finalize": "ts-node finalize.ts",
+    "claim": "ts-node claim.ts",
+    "setup-multisig": "ts-node sig/setupMultisig.ts",
+    "sign-multisig": "ts-node sig/signMultisigTx.ts",
+    "combine-submit": "ts-node sig/combineAndSubmit.ts",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@mysten/sui": "1.45.2",
+    "dotenv": "17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.0.9",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
+  }
 }

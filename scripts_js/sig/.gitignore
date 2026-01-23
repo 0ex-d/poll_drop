@@ -1,0 +1,11 @@
+# Multisig configuration (may contain sensitive info)
+multisig-config.json
+
+# Individual signatures
+signatures/
+
+# Transaction results
+last-tx-result.json
+
+# Keep the directory structure
+!.gitkeep

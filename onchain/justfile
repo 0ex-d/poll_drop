@@ -1,0 +1,19 @@
+set dotenv-load
+
+default: test
+
+build:
+    sui move build
+
+test:
+    sui move test
+
+deploy-testnet: build
+    @echo "Deploying to Testnet..."
+    sui client publish --gas-budget ${GAS_BUDGET} --json --skip-dependency-verification
+
+deploy-mainnet:
+    @echo "Deploying to Mainnet..."
+    sui client publish --gas-budget ${GAS_BUDGET} --json --skip-dependency-verification build.json
+clean:
+    rm -rf build
